@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <link rel="stylesheet" href="style.css">
+  <title>Socket</title>
+</head>
+
+<body>
+  <svg width="400" height="400"></svg>
+  <div id="output"></div>
+
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script src="http://vizjs.org/viz.v1.0.0.min.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.js"></script>
+  <script>
+    // D3
+    let sp = 0;
+
+    // Make connection
+    const socket = io.connect('http://13.126.35.234:4000');
+    // Query DOM
+    const output = document.getElementById('output');
+    // Listen for events
+    socket.on('chat', decodedData => {
+      console.log(decodedData);
+
+      const lbsField = `
+        <p>Country code: ${decodedData.MCC}</p>
+        <p>Operator: ${decodedData.MNC}</p>
+        <p>LAC: ${decodedData.LAC}</p>
+        <p>Cell ID: ${decodedData.CID}</p>
+        <p>Signal strength: ${decodedData.db}</p>
+      `;
+      const gpsField = `
+        <p>GPS status: ${decodedData.gpsStatus}</p>
+        <p>GPS lat: ${decodedData.lat}</p>
+        <p>GPS long: ${decodedData.long}</p>
+        <p>GPS speed: ${decodedData.gpsSpeed}</p>
+        <p>GPS angle: ${decodedData.gpsAngle}</p>
+        <p>GPS HDOP: ${decodedData.HDOP}</p>
+      `;
+      const cond = decodedData.gpsStatus === undefined ? 'LBS' : 'GPS';
+      let location = cond === 'LBS' ? lbsField : gpsField;
+
+      output.innerHTML = `
+        <p>Device ID: ${decodedData.deviceId}</p>
+        <p>Date: ${decodedData.year}/${decodedData.month}/${decodedData.day}</p>
+        <p>Time: ${decodedData.hour}:${decodedData.min}:${decodedData.sec}</p>
+        <p>Device status: ${decodedData.deviceStatus}</p>
+        <br/>
+        <p>Using ${cond} for location data</p>
+        ${location}
+      `;
+
+      const svg = d3.select("svg");
+      const g = svg.append("g").attr("transform", "translate(200, 200)");
+      const domain = [0, 170];
+
+      const gg = viz.gg()
+        .domain(domain)
+        .ticks(d3.range(domain[0], domain[1] + 1, 2))
+        .outerRadius(200)
+        .innerRadius(20)
+        .value(sp)
+        .duration(500);
+
+      gg.defs(svg);
+      g.call(gg);
+
+      sp = Number(decodedData.gpsSpeed);
+
+      d3.select(self.frameElement).style("height", "700px");
+      setInterval(() => {
+        gg.setNeedle(sp);
+      }, 1000);
+    });
+  </script>
+
+</body>
+
+</html>
